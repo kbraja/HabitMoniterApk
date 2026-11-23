@@ -27,21 +27,26 @@ td.n input{width:96px;font:inherit;font-size:13px;color:var(--fg);background:var
 .pk p{margin:0 0 12px;font-weight:600}.rg{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:10px}
 .rg button{height:48px;border:0;border-radius:12px;font-size:18px;font-weight:700}.rg button.sel{outline:3px solid var(--fg);outline-offset:2px}
 .pk input{width:100%;font:inherit;padding:12px;margin-bottom:8px;border-radius:10px;border:1px solid var(--ln);background:var(--cell);color:var(--fg)}
+#sp{position:fixed;inset:0;z-index:30;background:var(--bg);display:flex;align-items:center;justify-content:center;text-align:center;transition:opacity .5s}#sp.out{opacity:0;pointer-events:none}
+#sp h2{font-size:34px;margin:8px 0 6px;letter-spacing:-.02em}#sp p{color:var(--mu);margin:0}
+.c.today{outline:2px solid var(--fg);outline-offset:1px}.c.fut{opacity:.35}
 .hint{font-size:12px;color:var(--mu);margin:6px 2px 0}
 </style></head><body><main>
 <div class="top"><button class="nav" id="pv" aria-label="Previous month">‹</button><h1 id="mt"></h1><button class="nav" id="nx" aria-label="Next month">›</button></div>
 <div class="card st" id="st"></div>
-<div class="card"><div class="lg" id="lg"></div><div class="sc" id="gr"></div><p class="hint">Tap a day to rate a habit from 0 to 10.</p></div>
+<div class="card"><div class="lg" id="lg"></div><div class="sc" id="gr"></div><p class="hint">Tap a day to rate 0–10. A saved rating is final. Future days are locked.</p></div>
 <div class="row"><button class="b p" id="ed"></button><button class="b" id="ad" hidden>+ Add habit</button><button class="b" id="rm"></button><button class="b" id="ac">Account &amp; sync</button></div>
 <p class="hint" id="sy"></p>
 <p class="hint" id="hn"></p>
 </main><div id="ov" hidden></div>
+<div id="sp"><div><div style="font-size:52px">👋</div><h2>Hello Boopathiraja</h2><p id="sd"></p></div></div>
 <script>
+window.addEventListener("error",e=>{const s=document.getElementById("sy");if(s)s.textContent="Error: "+e.message+" (line "+e.lineno+")"});
 const KEY="habits-v2",$=i=>document.getElementById(i);
 const DEF=["Sleep 6+ hours","Drink 2L water","Read 20 pages","Move for 30 min","Eat my greens","Phone off by 10pm","Journal","Time with family"];
 const ym=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-let S={cur:ym(new Date()),m:{},rem:null,last:""},edit=false,pend=null;
+let S={cur:ym(new Date()),m:{},rem:null,last:""},edit=false,pend=null,scrollT=true;
 try{Object.assign(S,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
 S.cur=ym(new Date());
 const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};const save=()=>{persist();sched()};
@@ -61,16 +66,17 @@ function render(){
  const hd=`<tr><th class="n"></th>${[...Array(n)].map((_,d)=>`<th class="${d+1===td?"td":""}">${d+1}</th>`).join("")}<th>Avg</th></tr>`;
  const rows=sh.h.map(h=>{let s=0,c=0;
   const cells=[...Array(n)].map((_,d)=>{const r=sh.r[h.id+","+d];if(r!=null){s+=r;c++}const k=r!=null?col(r):null;
-   return `<td><button class="c" data-h="${h.id}" data-d="${d}" ${k?`style="background:${k[0]};color:${k[1]}"`:""} aria-label="${esc(h.name)}, day ${d+1}">${r??""}</button></td>`}).join("");
+   const fut=S.cur>ym(now)||(td&&d+1>td);return `<td><button class="c${d+1===td?" today":""}${fut?" fut":""}" ${r==null&&!fut?`data-h="${h.id}" data-d="${d}"`:""} ${k?`style="background:${k[0]};color:${k[1]}"`:""} aria-label="${esc(h.name)}, day ${d+1}">${r??""}</button></td>`}).join("");
   const nm=edit?`<input data-n="${h.id}" value="${esc(h.name)}"><button class="x" data-x="${h.id}" aria-label="Delete ${esc(h.name)}">✕</button>`:esc(h.name);
   return `<tr><td class="n">${nm}</td>${cells}<td class="a">${c?(s/c).toFixed(1):"–"}</td></tr>`}).join("");
  $("gr").innerHTML=`<table>${hd}${rows}</table>`;
  $("ed").textContent=edit?"Done editing":"Edit this month's habits";$("ad").hidden=!edit;
  $("rm").textContent=S.rem?"Reminder 7:00 pm IST: on":"Turn on 7:00 pm IST reminder";
  $("hn").textContent=edit?"Changes apply to this month. Next month starts with a copy of this list.":"Each month has its own sheet. Use ‹ › to switch.";
+ if(scrollT){scrollT=false;const sc=$("gr"),th=sc.querySelector("th.td");sc.scrollLeft=0;if(th)sc.scrollLeft+=th.getBoundingClientRect().left-sc.getBoundingClientRect().left-192}
 }
-function open(h,d){const sh=sheet(S.cur),H=sh.h.find(x=>x.id===h),cur=sh.r[h+","+d];pend={h,d};
- $("ov").innerHTML=`<div class="pk"><p>${esc(H.name)} · day ${d+1}</p><div class="rg">${[...Array(11)].map((_,v)=>`<button data-v="${v}" class="${cur===v?"sel":""}" style="background:${col(v)[0]};color:${col(v)[1]}">${v}</button>`).join("")}</div><button class="b" data-v="clear" style="width:100%">Clear rating</button></div>`;$("ov").hidden=false}
+function open(h,d){const sh=sheet(S.cur);if(sh.r[h+","+d]!=null)return;const H=sh.h.find(x=>x.id===h);pend={h,d,v:null};
+ $("ov").innerHTML=`<div class="pk"><p>${esc(H.name)} · day ${d+1}</p><div class="rg">${[...Array(11)].map((_,v)=>`<button data-v="${v}" style="background:${col(v)[0]};color:${col(v)[1]}">${v}</button>`).join("")}</div><button class="b p" id="sv" disabled style="width:100%">Pick a rating</button><p class="hint">Once saved, a rating can't be changed.</p></div>`;$("ov").hidden=false}
 document.addEventListener("click",e=>{
  const t=e.target.closest("button"),sh=sheet(S.cur);
  if(e.target.id==="ov"){$("ov").hidden=true;return}
@@ -78,30 +84,31 @@ document.addEventListener("click",e=>{
  if(t.id==="ac"){acct();return}if(t.id==="cl"){$("ov").hidden=true;return}
  if(t.id==="si"||t.id==="su"){login(t.id==="su");return}
  if(t.id==="so"){A=null;localStorage.removeItem(AK);$("ov").hidden=true;status();return}
- if(D.v!=null&&pend){const k=pend.h+","+pend.d;D.v==="clear"?delete sh.r[k]:sh.r[k]=+D.v;sh.t[k]=Date.now();$("ov").hidden=true;pend=null}
+ if(D.v!=null&&pend){pend.v=+D.v;document.querySelectorAll(".rg button").forEach(b=>b.classList.toggle("sel",b===t));const sv=$("sv");sv.disabled=false;sv.textContent="Save "+D.v+" (final)";return}
+ if(t.id==="sv"&&pend&&pend.v!=null){const k=pend.h+","+pend.d;if(sh.r[k]==null){sh.r[k]=pend.v;sh.t[k]=Date.now()}$("ov").hidden=true;pend=null}
  else if(D.h!=null){open(D.h,+D.d);return}
  else if(D.x){if(!confirm("Delete this habit from this month?"))return;sh.h=sh.h.filter(h=>h.id!==D.x);sh.ht=Date.now();for(const k in sh.r)if(k.startsWith(D.x+",")){delete sh.r[k];sh.t[k]=Date.now()}}
  else if(t.id==="ad"){sh.h.push({id:"h"+Date.now(),name:"New habit"});sh.ht=Date.now()}
  else if(t.id==="ed")edit=!edit;
- else if(t.id==="pv"||t.id==="nx"){const[y,m]=S.cur.split("-").map(Number),d=new Date(y,m-1+(t.id==="nx"?1:-1),1);S.cur=ym(d)}
+ else if(t.id==="pv"||t.id==="nx"){const[y,m]=S.cur.split("-").map(Number),d=new Date(y,m-1+(t.id==="nx"?1:-1),1);S.cur=ym(d);scrollT=true}
  else if(t.id==="rm"){setRem(!S.rem).then(render);return}
  else return;
  save();render()});
 document.addEventListener("input",e=>{const id=e.target.dataset.n;if(!id)return;const h=sheet(S.cur).h.find(x=>x.id===id);if(h){h.name=e.target.value;sheet(S.cur).ht=Date.now();save()}});
+render();
 /* 7 pm IST reminder: native (Capacitor APK) is reliable; browser only while the app is open */
 const LN=window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()?Capacitor.registerPlugin("LocalNotifications"):null;
 const istLocal=()=>{const d=new Date(Date.UTC(2026,0,15,13,30));return{hour:d.getHours(),minute:d.getMinutes()}};
-async function setRem(on){
+async function setRem(on,quiet){
  try{
   if(LN){await LN.cancel({notifications:[{id:19}]}).catch(()=>{});
-   if(on){const p=await LN.requestPermissions();if(p.display!=="granted"){alert("Allow notifications for Daily Habits in Android settings.");return}
+   if(on){const p=await LN.requestPermissions();if(p.display!=="granted"){if(!quiet)alert("Allow notifications for Daily Habits in Android settings.");S.rem=false;save();return}
     await LN.schedule({notifications:[{id:19,title:"Rate your habits",body:"Take a minute to log today's habits.",schedule:{on:istLocal(),allowWhileIdle:true}}]})}}
   else if(on&&"Notification"in window&&await Notification.requestPermission()!=="granted"){alert("Notifications are blocked in this browser.");return}
   S.rem=on;save()}catch(e){alert("Could not set the reminder: "+e.message)}}
 setInterval(()=>{if(LN||!S.rem||!("Notification"in window)||Notification.permission!=="granted")return;
  const t=new Date(Date.now()+19800000),k=t.toISOString().slice(0,10);
  if(t.getUTCHours()>=19&&S.last!==k){S.last=k;save();new Notification("Rate your habits",{body:"Take a minute to log today's habits."})}},30000);
-if(LN&&S.rem==null)setRem(true).then(render);
 /* cloud sync: Supabase REST, offline-first. Fill in your project URL and anon key. */
 const CFG={url:"YOUR_SUPABASE_URL",key:"YOUR_SUPABASE_ANON_KEY"},AK="habits-auth",cloudOn=!CFG.url.startsWith("YOUR");
 let A=null,syncing=false,again=false,timer=null,msg="";
@@ -143,6 +150,11 @@ async function login(create){const email=$("em").value.trim(),password=$("pw").v
   setA(j,email);$("ov").hidden=true;sync()}catch(e){$("er").textContent=e.message}}
 window.addEventListener("online",sync);document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync()});setInterval(sync,60000);
 if("serviceWorker"in navigator&&!LN&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
-status();sync();
+try{status()}catch(e){}
+$("sd").textContent=new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"});
+const hideSp=()=>{const s=$("sp");if(s.classList.contains("out"))return;s.classList.add("out");scrollT=true;render();if(LN&&S.rem==null)setTimeout(()=>setRem(true,true).then(render),400)};
+$("sp").addEventListener("click",hideSp);setTimeout(hideSp,1800);
+window.addEventListener("load",()=>{scrollT=true;render()});
+setTimeout(()=>{try{sync()}catch(e){}},500);
 render();
 </script></body></html>
