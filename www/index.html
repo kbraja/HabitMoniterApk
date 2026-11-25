@@ -30,11 +30,18 @@ td.n input{width:96px;font:inherit;font-size:13px;color:var(--fg);background:var
 #sp{position:fixed;inset:0;z-index:30;background:var(--bg);display:flex;align-items:center;justify-content:center;text-align:center;transition:opacity .5s}#sp.out{opacity:0;pointer-events:none}
 #sp h2{font-size:34px;margin:8px 0 6px;letter-spacing:-.02em}#sp p{color:var(--mu);margin:0}
 .c.today{outline:2px solid var(--fg);outline-offset:1px}.c.fut{opacity:.35}
+.card h3{margin:0 0 8px;font-size:15px}.sv{display:inline-block;min-width:34px;text-align:center;padding:2px 6px;border-radius:7px;font-weight:700;font-size:12px;background:var(--cell);color:var(--mu)}
+.bars{display:flex;align-items:flex-end;gap:2px;height:90px}.bars i{flex:1;min-width:3px;border-radius:3px 3px 0 0}.bars i.tb{outline:2px solid var(--fg);outline-offset:1px}
+.wr{display:grid;grid-template-columns:86px 1fr 40px;gap:8px;align-items:center;margin:9px 0;font-size:13px}.wr small{color:var(--mu);font-size:11px}
+.bar{height:10px;border-radius:6px;background:var(--cell);overflow:hidden}.bar b{display:block;height:100%;border-radius:6px}
+.wt{border-collapse:separate;border-spacing:3px;font-size:12px;width:100%}.wt td{text-align:center}.wt td:first-child{text-align:left;max-width:110px;font-size:13px}.wt th{color:var(--mu);font-weight:500}
+.tag{font-size:10px;padding:1px 6px;border-radius:6px;background:var(--fg);color:var(--bg);margin-left:4px}
 .hint{font-size:12px;color:var(--mu);margin:6px 2px 0}
 </style></head><body><main>
 <div class="top"><button class="nav" id="pv" aria-label="Previous month">‹</button><h1 id="mt"></h1><button class="nav" id="nx" aria-label="Next month">›</button></div>
 <div class="card st" id="st"></div>
 <div class="card"><div class="lg" id="lg"></div><div class="sc" id="gr"></div><p class="hint">Tap a day to rate 0–10. A saved rating is final. Future days are locked.</p></div>
+<div id="sm"></div>
 <div class="row"><button class="b p" id="ed"></button><button class="b" id="ad" hidden>+ Add habit</button><button class="b" id="rm"></button><button class="b" id="ac">Account &amp; sync</button></div>
 <p class="hint" id="sy"></p>
 <p class="hint" id="hn"></p>
@@ -76,8 +83,29 @@ function render(){
  $("ed").textContent=edit?"Done editing":"Edit this month's habits";$("ad").hidden=!edit;
  $("rm").textContent=S.rem?"Reminder 7:00 pm IST: on":"Turn on 7:00 pm IST reminder";
  $("hn").textContent=edit?"Changes apply to this month. Next month starts with a copy of this list.":"Each month has its own sheet. Use ‹ › to switch.";
+ try{$("sm").innerHTML=summ(sh,n,td,y,mo)}catch(e){}
  if(scrollT){scrollT=false;const sc=$("gr"),th=sc.querySelector("th.td");sc.scrollLeft=0;if(th)sc.scrollLeft+=th.getBoundingClientRect().left-sc.getBoundingClientRect().left-192}
 }
+function summ(sh,n,td,y,mo){
+ if(!Object.keys(sh.r).length)return `<div class="card"><h3>Summary</h3><p class="hint">Rate a few days to see your weekly summary, daily chart and top habits.</p></div>`;
+ const mon=new Date(y,mo-1,1).toLocaleString("en",{month:"short"});
+ const chip=v=>{if(v==null)return `<span class="sv">–</span>`;const k=col(Math.round(v));return `<span class="sv" style="background:${k[0]};color:${k[1]}">${v.toFixed(1)}</span>`};
+ const dayAvg=d=>{let t=0,c=0;sh.h.forEach(h=>{const v=sh.r[h.id+","+d];if(v!=null){t+=v;c++}});return c?t/c:null};
+ const rng=(hid,a,b)=>{let t=0,c=0;for(let d=a;d<b;d++){const v=sh.r[hid+","+d];if(v!=null){t+=v;c++}}return c?t/c:null};
+ const W=[];for(let a=0;a<n;a+=7)W.push([a,Math.min(a+7,n)]);
+ const wk=W.map(([a,b])=>{let t=0,c=0;for(let d=a;d<b;d++){const x=dayAvg(d);if(x!=null){t+=x;c++}}return{a,b,avg:c?t/c:null,days:c}});
+ const best=Math.max(...wk.map(w=>w.avg==null?-1:w.avg));
+ const bars=[...Array(n)].map((_,d)=>{const x=dayAvg(d);return `<i class="${d+1===td?"tb":""}" style="height:${x==null?3:Math.max(8,x*10)}%;background:${x==null?"var(--cell)":col(Math.round(x))[0]}"></i>`}).join("");
+ const weeks=wk.map((w,i)=>{const k=w.avg==null?["var(--cell)"]:col(Math.round(w.avg));
+  return `<div class="wr"><span>Week ${i+1}${td&&td>w.a&&td<=w.b?`<span class="tag">now</span>`:""}<br><small>${mon} ${w.a+1}–${w.b} · ${w.days}/${w.b-w.a} days</small></span><div class="bar"><b style="width:${w.avg==null?0:w.avg*10}%;background:${k[0]}"></b></div><span>${w.avg==null?"–":w.avg.toFixed(1)}${w.avg===best&&best>=0?" ★":""}</span></div>`}).join("");
+ const hs=sh.h.map(h=>({h,a:rng(h.id,0,n)})).filter(x=>x.a!=null).sort((p,q)=>q.a-p.a);
+ const top=hs.slice(0,3).map(x=>`<div class="wr" style="grid-template-columns:1fr auto"><span>${esc(x.h.name)}</span>${chip(x.a)}</div>`).join("");
+ const low=hs.length>3?hs[hs.length-1]:null;
+ const tbl=`<div class="sc"><table class="wt"><tr><th></th>${W.map((_,i)=>`<th>W${i+1}</th>`).join("")}<th>All</th></tr>${sh.h.map(h=>`<tr><td>${esc(h.name)}</td>${W.map(([a,b])=>`<td>${chip(rng(h.id,a,b))}</td>`).join("")}<td>${chip(rng(h.id,0,n))}</td></tr>`).join("")}</table></div>`;
+ return `<div class="card"><h3>Daily average</h3><div class="bars">${bars}</div><p class="hint">Day 1 → ${n}. Bar height and color follow the day's average rating.</p></div>
+<div class="card"><h3>Weekly summary</h3>${weeks}<p class="hint">★ marks your best week.</p></div>
+<div class="card"><h3>Habits by week</h3>${tbl}</div>
+<div class="card"><h3>Top habits</h3>${top}${low?`<h3 style="margin-top:12px">Needs attention</h3><div class="wr" style="grid-template-columns:1fr auto"><span>${esc(low.h.name)}</span>${chip(low.a)}</div>`:""}</div>`}
 function open(h,d){const sh=sheet(S.cur);if(sh.r[h+","+d]!=null)return;const H=sh.h.find(x=>x.id===h);pend={h,d,v:null};
  $("ov").innerHTML=`<div class="pk"><p>${esc(H.name)} · day ${d+1}</p><div class="rg">${[...Array(11)].map((_,v)=>`<button data-v="${v}" style="background:${col(v)[0]};color:${col(v)[1]}">${v}</button>`).join("")}</div><button class="b p" id="sv" disabled style="width:100%">Pick a rating</button><p class="hint">Once saved, a rating can't be changed.</p></div>`;$("ov").hidden=false}
 document.addEventListener("click",e=>{
