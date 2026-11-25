@@ -36,11 +36,19 @@ td.n input{width:96px;font:inherit;font-size:13px;color:var(--fg);background:var
 .bar{height:10px;border-radius:6px;background:var(--cell);overflow:hidden}.bar b{display:block;height:100%;border-radius:6px}
 .wt{border-collapse:separate;border-spacing:3px;font-size:12px;width:100%}.wt td{text-align:center}.wt td:first-child{text-align:left;max-width:110px;font-size:13px}.wt th{color:var(--mu);font-weight:500}
 .tag{font-size:10px;padding:1px 6px;border-radius:6px;background:var(--fg);color:var(--bg);margin-left:4px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin-bottom:10px}.two .card{margin-bottom:0}
+.ck{width:30px;height:30px;border-radius:8px;border:0;background:var(--cell);font-size:16px;font-weight:700;padding:0;color:#fff}.ck.on{background:#16813f}.ck.fut{opacity:.35}
+.mr{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--ln);font-size:14px}.ei{font:inherit;font-size:13px;color:var(--fg);background:var(--cell);border:1px solid var(--ln);border-radius:6px;padding:4px;width:100%}
+.mc{display:flex;justify-content:space-around;margin-top:12px;text-align:center}.mc small{color:var(--mu)}
+input.ck{-webkit-appearance:none;appearance:none;width:30px;height:30px;flex:none;margin:0;border-radius:8px;border:2px solid var(--mu);background:transparent;position:relative;cursor:pointer}
+input.ck:checked{background:#16813f;border-color:#16813f}input.ck:checked::after{content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px}
+input.ck:disabled{opacity:.35;cursor:default}
 .hint{font-size:12px;color:var(--mu);margin:6px 2px 0}
 </style></head><body><main>
 <div class="top"><button class="nav" id="pv" aria-label="Previous month">‹</button><h1 id="mt"></h1><button class="nav" id="nx" aria-label="Next month">›</button></div>
 <div class="card st" id="st"></div>
 <div class="card"><div class="lg" id="lg"></div><div class="sc" id="gr"></div><p class="hint">Tap a day to rate 0–10. A saved rating is final. Future days are locked.</p></div>
+<div id="ex"></div>
 <div id="sm"></div>
 <div class="row"><button class="b p" id="ed"></button><button class="b" id="ad" hidden>+ Add habit</button><button class="b" id="rm"></button><button class="b" id="ac">Account &amp; sync</button></div>
 <p class="hint" id="sy"></p>
@@ -54,19 +62,21 @@ window.addEventListener("error",function(e){var b=document.getElementById("eb");
 window.addEventListener("error",e=>{const s=document.getElementById("sy");if(s)s.textContent="Error: "+e.message+" (line "+e.lineno+")"});
 const KEY="habits-v2",$=i=>document.getElementById(i);
 const DEF=["Sleep 6+ hours","Drink 2L water","Read 20 pages","Move for 30 min","Eat my greens","Phone off by 10pm","Journal","Time with family"];
+const DEFW=["Call a friend","Workout log","Declutter a space","Log work done"],DEFM=["Monthly workout goal","Work goals log","Plan a weekend trip","Read a book"],MOODS=["😄","🙂","😐","😟","😢"];
+function norm(m){m.t=m.t||{};m.ht=m.ht||0;m.x=m.x||{};m.xt=m.xt||{};m.lt=m.lt||0;m.wh=m.wh||DEFW.map((n,i)=>({id:"w"+i,name:n}));m.mh=m.mh||DEFM.map((n,i)=>({id:"m"+i,name:n}));for(const c in m.r)if(m.t[c]==null)m.t[c]=1;for(const c in m.x)if(m.xt[c]==null)m.xt[c]=1;return m}
 const ym=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let S={cur:ym(new Date()),m:{},rem:null,last:""},edit=false,pend=null,scrollT=true;
 try{Object.assign(S,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
 S.cur=ym(new Date());
 const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};const save=()=>{persist();sched()};
-for(const k in S.m){const m=S.m[k];m.t=m.t||{};m.ht=m.ht||0;for(const c in m.r)if(m.t[c]==null)m.t[c]=1}
+for(const k in S.m)norm(S.m[k]);
 const col=v=>v<=1?["#e5484d","#fff"]:v<=4?["#f5922b","#201400"]:v<=6?["#f2d14b","#1f1a00"]:v<=8?["#9ad97a","#0d2a0a"]:["#16813f","#fff"];
 const LEG=[["0–1","Very poor",0],["2–4","Poor",3],["5–6","Done some",5],["7–8","Good",7],["9–10","Great",9]];
 $("lg").innerHTML=LEG.map(l=>`<span><i style="background:${col(l[2])[0]}"></i>${l[0]} ${l[1]}</span>`).join("");
 function sheet(k){if(S.m[k])return S.m[k];
  const p=Object.keys(S.m).filter(x=>x<k).sort().pop();
- return S.m[k]={h:p?S.m[p].h.map(h=>({id:h.id,name:h.name})):DEF.map((n,i)=>({id:"h"+i,name:n})),ht:0,r:{},t:{}}}
+ const o={h:p?S.m[p].h.map(h=>({id:h.id,name:h.name})):DEF.map((n,i)=>({id:"h"+i,name:n})),ht:0,r:{},t:{}};if(p){const P=norm(S.m[p]);o.wh=P.wh.map(i=>({id:i.id,name:i.name}));o.mh=P.mh.map(i=>({id:i.id,name:i.name}))}return S.m[k]=norm(o)}
 function render(){
  const[y,mo]=S.cur.split("-").map(Number),n=new Date(y,mo,0).getDate(),sh=sheet(S.cur),now=new Date(),td=ym(now)===S.cur?now.getDate():0;
  $("mt").textContent=new Date(y,mo-1,1).toLocaleString("en",{month:"long",year:"numeric"});
@@ -83,8 +93,9 @@ function render(){
  $("ed").textContent=edit?"Done editing":"Edit this month's habits";$("ad").hidden=!edit;
  $("rm").textContent=S.rem?"Reminder 7:00 pm IST: on":"Turn on 7:00 pm IST reminder";
  $("hn").textContent=edit?"Changes apply to this month. Next month starts with a copy of this list.":"Each month has its own sheet. Use ‹ › to switch.";
+ try{$("ex").innerHTML=extras(sh,n,td,y,mo)}catch(e){$("sy").textContent="Error: "+e.message}
  try{$("sm").innerHTML=summ(sh,n,td,y,mo)}catch(e){}
- if(scrollT){scrollT=false;const sc=$("gr"),th=sc.querySelector("th.td");sc.scrollLeft=0;if(th)sc.scrollLeft+=th.getBoundingClientRect().left-sc.getBoundingClientRect().left-192}
+ if(scrollT){scrollT=false;["gr","ms"].forEach(i=>{const sc=$(i);if(!sc)return;const th=sc.querySelector("th.td");sc.scrollLeft=0;if(th)sc.scrollLeft+=th.getBoundingClientRect().left-sc.getBoundingClientRect().left-192})}
 }
 function summ(sh,n,td,y,mo){
  if(!Object.keys(sh.r).length)return `<div class="card"><h3>Summary</h3><p class="hint">Rate a few days to see your weekly summary, daily chart and top habits.</p></div>`;
@@ -106,6 +117,21 @@ function summ(sh,n,td,y,mo){
 <div class="card"><h3>Weekly summary</h3>${weeks}<p class="hint">★ marks your best week.</p></div>
 <div class="card"><h3>Habits by week</h3>${tbl}</div>
 <div class="card"><h3>Top habits</h3>${top}${low?`<h3 style="margin-top:12px">Needs attention</h3><div class="wr" style="grid-template-columns:1fr auto"><span>${esc(low.h.name)}</span>${chip(low.a)}</div>`:""}</div>`}
+const MD={mood:"Mood",sleep:"Sleep"};
+function openX(kind,d){pend={k:kind,d,v:null};
+ const body=kind==="mood"?`<div class="rg">${MOODS.map((e,i)=>`<button data-v="${i}" style="background:var(--cell);font-size:28px">${e}</button>`).join("")}</div>`:`<input id="sl" type="number" inputmode="decimal" step="0.5" min="0" max="24" placeholder="Hours slept, e.g. 7.5">`;
+ $("ov").innerHTML=`<div class="pk"><p>${MD[kind]} · day ${d+1}</p>${body}<button class="b p" id="sv" disabled style="width:100%">${kind==="mood"?"Pick a mood":"Enter hours"}</button><p class="hint">Once saved, it can't be changed.</p></div>`;$("ov").hidden=false}
+function extras(sh,n,td,y,mo){
+ const fm=S.cur>ym(new Date()),x=sh.x,fut=d=>fm||(td&&d+1>td),WN=Math.ceil(n/7),wf=i=>fm||(td&&i*7+1>td);
+ const hd=`<tr><th class="n"></th>${[...Array(n)].map((_,d)=>`<th class="${d+1===td?"td":""}">${d+1}<br>${"SMTWTFS"[new Date(y,mo-1,d+1).getDay()]}</th>`).join("")}</tr>`;
+ const row=(kind,label,fmt)=>`<tr><td class="n">${label}</td>${[...Array(n)].map((_,d)=>{const v=x[kind+","+d],open=v==null&&!fut(d);return `<td><button class="c${d+1===td?" today":""}${v==null&&fut(d)?" fut":""}" ${open?`data-xk="${kind}" data-xd="${d}"`:""} aria-label="${label}, day ${d+1}">${v!=null?fmt(v):""}</button></td>`}).join("")}</tr>`;
+ const cnt=[0,0,0,0,0];let st=0,sn=0;for(const k in x){if(k.startsWith("mood,"))cnt[x[k]]++;else if(k.startsWith("sleep,")){st+=x[k];sn++}}
+ const mood=`<div class="card"><h3>Mood &amp; sleep</h3><div class="sc" id="ms"><table>${hd}${row("mood","Mood",v=>MOODS[v])}${row("sleep","Sleep (h)",v=>v)}</table></div><div class="mc">${cnt.map((c,i)=>`<div><div style="font-size:28px">${MOODS[i]}</div><small>${c} day${c===1?"":"s"}</small></div>`).join("")}</div><p class="hint">${sn?`Average sleep ${(st/sn).toFixed(1)} h over ${sn} night${sn===1?"":"s"}. `:""}Mood and sleep are final once saved.</p></div>`;
+ const nm=(h,L)=>edit?`<input class="ei" data-n="${h.id}" data-l="${L}" value="${esc(h.name)}"><button class="x" data-x="${h.id}" data-l="${L}" aria-label="Delete ${esc(h.name)}">✕</button>`:esc(h.name);
+ let wd=0;const wrows=sh.wh.map(h=>`<tr><td class="n">${nm(h,"wh")}</td>${[...Array(WN)].map((_,i)=>{const k="w:"+h.id+","+i,on=x[k]!=null;if(on)wd++;return `<td><input type="checkbox" class="ck" ${on?"checked":""} ${wf(i)?"disabled":`data-ck="${k}"`} aria-label="${esc(h.name)}, week ${i+1}"></td>`}).join("")}</tr>`).join("");
+ let md=0;const mrows=sh.mh.map(h=>{const k="m:"+h.id,on=x[k]!=null;if(on)md++;return `<div class="mr"><input type="checkbox" class="ck" ${on?"checked":""} ${fm?"disabled":`data-ck="${k}"`} aria-label="${esc(h.name)}">${edit?nm(h,"mh"):`<span>${esc(h.name)}</span>`}</div>`}).join("");
+ return mood+`<div class="two"><div class="card"><h3>Weekly habits · ${wd}/${sh.wh.length*WN}</h3><div class="sc"><table class="wt"><tr><th></th>${[...Array(WN)].map((_,i)=>`<th>W${i+1}</th>`).join("")}</tr>${wrows}</table></div>${edit?`<button class="b" id="aw" style="margin-top:8px">+ Add weekly habit</button>`:""}</div>
+<div class="card"><h3>Monthly habits · ${md}/${sh.mh.length}</h3>${mrows}${edit?`<button class="b" id="am" style="margin-top:8px">+ Add monthly goal</button>`:""}</div></div>`}
 function open(h,d){const sh=sheet(S.cur);if(sh.r[h+","+d]!=null)return;const H=sh.h.find(x=>x.id===h);pend={h,d,v:null};
  $("ov").innerHTML=`<div class="pk"><p>${esc(H.name)} · day ${d+1}</p><div class="rg">${[...Array(11)].map((_,v)=>`<button data-v="${v}" style="background:${col(v)[0]};color:${col(v)[1]}">${v}</button>`).join("")}</div><button class="b p" id="sv" disabled style="width:100%">Pick a rating</button><p class="hint">Once saved, a rating can't be changed.</p></div>`;$("ov").hidden=false}
 document.addEventListener("click",e=>{
@@ -115,17 +141,25 @@ document.addEventListener("click",e=>{
  if(t.id==="ac"){acct();return}if(t.id==="cl"){$("ov").hidden=true;return}
  if(t.id==="si"||t.id==="su"){login(t.id==="su");return}
  if(t.id==="so"){A=null;localStorage.removeItem(AK);$("ov").hidden=true;status();return}
- if(D.v!=null&&pend){pend.v=+D.v;document.querySelectorAll(".rg button").forEach(b=>b.classList.toggle("sel",b===t));const sv=$("sv");sv.disabled=false;sv.textContent="Save "+D.v+" (final)";return}
- if(t.id==="sv"&&pend&&pend.v!=null){const k=pend.h+","+pend.d;if(sh.r[k]==null){sh.r[k]=pend.v;sh.t[k]=Date.now()}$("ov").hidden=true;pend=null}
+ if(D.v!=null&&pend){pend.v=+D.v;document.querySelectorAll(".rg button").forEach(b=>b.classList.toggle("sel",b===t));const sv=$("sv");sv.disabled=false;sv.textContent="Save "+(pend.k==="mood"?MOODS[+D.v]:D.v)+" (final)";return}
+ if(t.id==="sv"&&pend&&pend.v!=null){if(pend.k){const k=pend.k+","+pend.d;if(sh.x[k]==null){sh.x[k]=pend.v;sh.xt[k]=Date.now()}}else{const k=pend.h+","+pend.d;if(sh.r[k]==null){sh.r[k]=pend.v;sh.t[k]=Date.now()}}$("ov").hidden=true;pend=null}
+ else if(D.xk){openX(D.xk,+D.xd);return}
+ else if(D.ck){const k=D.ck;if(sh.x[k]!=null)delete sh.x[k];else sh.x[k]=1;sh.xt[k]=Date.now()}
  else if(D.h!=null){open(D.h,+D.d);return}
+ else if(D.x&&D.l){if(!confirm("Delete this item from this month?"))return;sh[D.l]=sh[D.l].filter(i=>i.id!==D.x);sh.lt=Date.now();const pre=(D.l==="wh"?"w:":"m:")+D.x;for(const k in sh.x)if(k===pre||k.startsWith(pre+",")){delete sh.x[k];sh.xt[k]=Date.now()}}
  else if(D.x){if(!confirm("Delete this habit from this month?"))return;sh.h=sh.h.filter(h=>h.id!==D.x);sh.ht=Date.now();for(const k in sh.r)if(k.startsWith(D.x+",")){delete sh.r[k];sh.t[k]=Date.now()}}
  else if(t.id==="ad"){sh.h.push({id:"h"+Date.now(),name:"New habit"});sh.ht=Date.now()}
+ else if(t.id==="aw"){sh.wh.push({id:"w"+Date.now(),name:"New weekly habit"});sh.lt=Date.now()}
+ else if(t.id==="am"){sh.mh.push({id:"m"+Date.now(),name:"New monthly goal"});sh.lt=Date.now()}
  else if(t.id==="ed")edit=!edit;
  else if(t.id==="pv"||t.id==="nx"){const[y,m]=S.cur.split("-").map(Number),d=new Date(y,m-1+(t.id==="nx"?1:-1),1);S.cur=ym(d);scrollT=true}
  else if(t.id==="rm"){setRem(!S.rem).then(render);return}
  else return;
  save();render()});
-document.addEventListener("input",e=>{const id=e.target.dataset.n;if(!id)return;const h=sheet(S.cur).h.find(x=>x.id===id);if(h){h.name=e.target.value;sheet(S.cur).ht=Date.now();save()}});
+document.addEventListener("input",e=>{
+ if(e.target.id==="sl"&&pend){const v=parseFloat(e.target.value);pend.v=v>=0&&v<=24?v:null;const sv=$("sv");sv.disabled=pend.v==null;sv.textContent=pend.v==null?"Enter hours":"Save "+pend.v+" h (final)";return}
+ const id=e.target.dataset.n;if(!id)return;const sh=sheet(S.cur),L=e.target.dataset.l||"h",h=sh[L].find(x=>x.id===id);if(h){h.name=e.target.value;if(L==="h")sh.ht=Date.now();else sh.lt=Date.now();save()}});
+document.addEventListener("change",e=>{const k=e.target.dataset&&e.target.dataset.ck;if(!k)return;const sh=sheet(S.cur);if(e.target.checked)sh.x[k]=1;else delete sh.x[k];sh.xt[k]=Date.now();save();render()});
 render();
 </script><script>
 /* 7 pm IST reminder: native (Capacitor APK) is reliable; browser only while the app is open */
@@ -155,11 +189,12 @@ async function api(path,opt,token){opt=opt||{};
 function setA(j,email){A={at:j.access_token,rt:j.refresh_token,exp:Date.now()+(j.expires_in-60)*1000,uid:j.user.id,email:email||A.email};localStorage.setItem(AK,JSON.stringify(A))}
 async function tok(){if(Date.now()>A.exp)setA(await api("/auth/v1/token?grant_type=refresh_token",{method:"POST",body:JSON.stringify({refresh_token:A.rt})}));return A.at}
 function merge(a,b){const out={};
- for(const k of new Set([...Object.keys(a),...Object.keys(b)])){const x=a[k],y=b[k];
+ for(const k of new Set([...Object.keys(a),...Object.keys(b)])){const x=a[k]&&norm(a[k]),y=b[k]&&norm(b[k]);
   if(!x||!y){out[k]=x||y;continue}
-  const m={h:(x.ht||0)>=(y.ht||0)?x.h:y.h,ht:Math.max(x.ht||0,y.ht||0),r:{},t:{}};
-  for(const c of new Set([...Object.keys(x.t||{}),...Object.keys(y.t||{})])){
-   const tx=(x.t||{})[c]||0,ty=(y.t||{})[c]||0,w=tx>=ty?x:y;m.t[c]=Math.max(tx,ty);if((w.r||{})[c]!=null)m.r[c]=w.r[c]}
+  const nl=x.lt>=y.lt?x:y,nh=x.ht>=y.ht?x:y;
+  const m={h:nh.h,ht:Math.max(x.ht,y.ht),wh:nl.wh,mh:nl.mh,lt:Math.max(x.lt,y.lt),r:{},t:{},x:{},xt:{}};
+  for(const [v,tt] of [["r","t"],["x","xt"]])for(const c of new Set([...Object.keys(x[tt]),...Object.keys(y[tt])])){
+   const tx=x[tt][c]||0,ty=y[tt][c]||0,w=tx>=ty?x:y;m[tt][c]=Math.max(tx,ty);if(w[v][c]!=null)m[v][c]=w[v][c]}
   out[k]=m}return out}
 async function sync(){
  if(!cloudOn||!A)return;if(syncing){again=true;return}
