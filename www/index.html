@@ -40,6 +40,9 @@ td.n input{width:96px;font:inherit;font-size:13px;color:var(--fg);background:var
 <p class="hint" id="hn"></p>
 </main><div id="ov" hidden></div>
 <div id="sp"><div><div style="font-size:52px">👋</div><h2>Hello Boopathiraja</h2><p id="sd"></p></div></div>
+<div id="eb" hidden style="position:fixed;left:0;right:0;bottom:0;z-index:99;background:#e5484d;color:#fff;font:12px sans-serif;padding:8px"></div>
+<script>(function(){var sp=document.getElementById("sp");function out(){sp.classList.add("out")}sp.addEventListener("click",out);setTimeout(out,2000);
+window.addEventListener("error",function(e){var b=document.getElementById("eb");b.hidden=false;b.textContent+=e.message+" (line "+e.lineno+") "})})();</script>
 <script>
 window.addEventListener("error",e=>{const s=document.getElementById("sy");if(s)s.textContent="Error: "+e.message+" (line "+e.lineno+")"});
 const KEY="habits-v2",$=i=>document.getElementById(i);
@@ -96,19 +99,21 @@ document.addEventListener("click",e=>{
  save();render()});
 document.addEventListener("input",e=>{const id=e.target.dataset.n;if(!id)return;const h=sheet(S.cur).h.find(x=>x.id===id);if(h){h.name=e.target.value;sheet(S.cur).ht=Date.now();save()}});
 render();
+</script><script>
 /* 7 pm IST reminder: native (Capacitor APK) is reliable; browser only while the app is open */
-const LN=window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()?Capacitor.registerPlugin("LocalNotifications"):null;
+let _ln;function getLN(){if(_ln!==undefined)return _ln;_ln=null;try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){try{_ln=Capacitor.registerPlugin("LocalNotifications")}catch(e){_ln=(Capacitor.Plugins&&Capacitor.Plugins.LocalNotifications)||null}}}catch(e){}return _ln}
 const istLocal=()=>{const d=new Date(Date.UTC(2026,0,15,13,30));return{hour:d.getHours(),minute:d.getMinutes()}};
 async function setRem(on,quiet){
  try{
-  if(LN){await LN.cancel({notifications:[{id:19}]}).catch(()=>{});
-   if(on){const p=await LN.requestPermissions();if(p.display!=="granted"){if(!quiet)alert("Allow notifications for Daily Habits in Android settings.");S.rem=false;save();return}
-    await LN.schedule({notifications:[{id:19,title:"Rate your habits",body:"Take a minute to log today's habits.",schedule:{on:istLocal(),allowWhileIdle:true}}]})}}
+  if(getLN()){await getLN().cancel({notifications:[{id:19}]}).catch(()=>{});
+   if(on){const p=await getLN().requestPermissions();if(p.display!=="granted"){if(!quiet)alert("Allow notifications for Daily Habits in Android settings.");S.rem=false;save();return}
+    await getLN().schedule({notifications:[{id:19,title:"Rate your habits",body:"Take a minute to log today's habits.",schedule:{on:istLocal(),allowWhileIdle:true}}]})}}
   else if(on&&"Notification"in window&&await Notification.requestPermission()!=="granted"){alert("Notifications are blocked in this browser.");return}
   S.rem=on;save()}catch(e){alert("Could not set the reminder: "+e.message)}}
-setInterval(()=>{if(LN||!S.rem||!("Notification"in window)||Notification.permission!=="granted")return;
+setInterval(()=>{if(getLN()||!S.rem||!("Notification"in window)||Notification.permission!=="granted")return;
  const t=new Date(Date.now()+19800000),k=t.toISOString().slice(0,10);
  if(t.getUTCHours()>=19&&S.last!==k){S.last=k;save();new Notification("Rate your habits",{body:"Take a minute to log today's habits."})}},30000);
+</script><script>
 /* cloud sync: Supabase REST, offline-first. Fill in your project URL and anon key. */
 const CFG={url:"YOUR_SUPABASE_URL",key:"YOUR_SUPABASE_ANON_KEY"},AK="habits-auth",cloudOn=!CFG.url.startsWith("YOUR");
 let A=null,syncing=false,again=false,timer=null,msg="";
@@ -149,10 +154,11 @@ async function login(create){const email=$("em").value.trim(),password=$("pw").v
   if(!j.access_token){$("er").textContent="Check your email to confirm, then sign in.";return}
   setA(j,email);$("ov").hidden=true;sync()}catch(e){$("er").textContent=e.message}}
 window.addEventListener("online",sync);document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync()});setInterval(sync,60000);
-if("serviceWorker"in navigator&&!LN&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
+if("serviceWorker"in navigator&&!getLN()&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script><script>
 try{status()}catch(e){}
 $("sd").textContent=new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"});
-const hideSp=()=>{const s=$("sp");if(s.classList.contains("out"))return;s.classList.add("out");scrollT=true;render();if(LN&&S.rem==null)setTimeout(()=>setRem(true,true).then(render),400)};
+const hideSp=()=>{if(window._st)return;window._st=1;$("sp").classList.add("out");scrollT=true;render();if(getLN()&&S.rem==null)setTimeout(()=>setRem(true,true).then(render),400)};
 $("sp").addEventListener("click",hideSp);setTimeout(hideSp,1800);
 window.addEventListener("load",()=>{scrollT=true;render()});
 setTimeout(()=>{try{sync()}catch(e){}},500);
